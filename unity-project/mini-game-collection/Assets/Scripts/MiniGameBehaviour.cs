@@ -4,7 +4,7 @@ namespace MiniGameCollection
 {
     public abstract class MiniGameBehaviour : MonoBehaviour
     {
-        [field: SerializeField] MiniGameManager MiniGameManager;
+        [field: SerializeField] protected MiniGameManager MiniGameManager { get; set; }
 
         protected virtual void OnEnable()
         {
@@ -38,6 +38,11 @@ namespace MiniGameCollection
             MiniGameManager.OnGameClose -= OnGameClose;
         }
 
+        protected virtual void Reset()
+        {
+            GetMiniGameManagerIfNull();
+        }
+
         protected virtual void OnTimerInitialized(int maxGameTime) { }
         protected virtual void OnCountDown(string message) { }
         protected virtual void OnGameStart() { }
@@ -55,10 +60,7 @@ namespace MiniGameCollection
         protected virtual void OnGameClose() { }
 
 
-        private void Reset()
-        {
-            GetMiniGameManagerIfNull();
-        }
+
 
         private void GetMiniGameManagerIfNull()
         {

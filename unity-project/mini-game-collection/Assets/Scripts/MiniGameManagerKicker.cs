@@ -6,7 +6,7 @@ namespace MiniGameCollection
     {
         [field: SerializeField] MiniGameManager MiniGameManager;
 
-        private void Awake()
+        private void Start()
         {
             GetMiniGameManagerIfNull();
 
@@ -20,7 +20,7 @@ namespace MiniGameCollection
             }
 
             // Start mini game
-            MiniGameManager.StartTimer();
+            MiniGameManager.StartGame();
         }
 
         private void Reset()

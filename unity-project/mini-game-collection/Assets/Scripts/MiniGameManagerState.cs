@@ -1,11 +1,11 @@
 ﻿namespace MiniGameCollection
 {
-    public enum MiniGameState
+    public enum MiniGameManagerState
     {
         /// <summary>
         ///     
         /// </summary>
-        NotStarted,
+        WaitingForStart,
 
         /// <summary>
         ///     

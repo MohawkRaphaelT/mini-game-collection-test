@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace MiniGameCollection
 {
-    public class MiniGameManager : MonoBehaviour
+    public sealed class MiniGameManager : MonoBehaviour
     {
         // Delegates
         public delegate void TimerEvent();
@@ -24,51 +24,61 @@ namespace MiniGameCollection
         public TimerEvent OnGameClose;
 
         // Private state
-        private int previousIntTime = -1;
-        private readonly WaitForSeconds delay1Second = new(1);
-        private IEnumerator stateCoroutine;
+        private int PreviousIntTime { get; set; } = -1;
+        private WaitForSeconds Delay1Second { get; set; }
+        private IEnumerator StateCoroutine { get; set; }
 
         // Inspector fields
-        [field: SerializeField] public string CurrentCountDownMessage { get; private set; } = string.Empty;
-        [field: SerializeField] public string CountDownStartMessage { get; private set; } = "GO!";
-        [field: SerializeField] public MiniGameMaxTime MaxGameTime { get; private set; } = MiniGameMaxTime.Seconds30;
-        [field: SerializeField] public MiniGameState State { get; private set; } = MiniGameState.NotStarted;
-        [field: SerializeField] public float TimeFloat { get; private set; }
-        [field: SerializeField] public MiniGameWinner Winner { get; set; } = MiniGameWinner.Unset;
-        
+        [field: Header("Internal State")]
+        [field: SerializeField, ReadOnlyGUI]
+        public MiniGameManagerState State { get; private set; } = MiniGameManagerState.WaitingForStart;
+
+        [field: SerializeField, ReadOnlyGUI]
+        public string CurrentCountDownMessage { get; private set; } = string.Empty;
+
+        [field: SerializeField, ReadOnlyGUI]
+        public float TimeFloat { get; private set; }
+
+        [field: Header("Debug")]
+        [field: SerializeField]
+        public bool DebugMode { get; private set; } = false;
+
+        [field: SerializeField, Min(0.25f)]
+        public float DebugGameTime { get; private set; } = 5;
+
+        [field: Header("Parameters")]
+        [field: SerializeField]
+        public string CountDownStartMessage { get; private set; } = "GO!";
+
+        [field: SerializeField]
+        public MiniGameMaxTime MaxGameTime { get; private set; } = MiniGameMaxTime.Seconds30;
+
+        [field: SerializeField]
+        public MiniGameWinner Winner { get; set; } = MiniGameWinner.Unset;
+
         // Properties
-        public int TimeInt => (int)Math.Round(TimeFloat, MidpointRounding.AwayFromZero);
-        public bool IsCountingDown => State == MiniGameState.InCountDown;
-        public bool IsTimerRunning => State == MiniGameState.TimerRunning;
-        public bool IsTimerExpired => State == MiniGameState.TimerExpired;
+        public int TimeInt => (int)Math.Ceiling(TimeFloat);
+        public bool IsCountingDown => State == MiniGameManagerState.InCountDown;
+        public bool IsTimerRunning => State == MiniGameManagerState.TimerRunning;
+        public bool IsTimerExpired => State == MiniGameManagerState.TimerExpired;
 
 
-        public void Awake()
+        private void Start()
         {
-            // Set time based on enum
-            TimeFloat = MaxGameTime switch
-            {
-                MiniGameMaxTime.Seconds30 => 30,
-                MiniGameMaxTime.Seconds60 => 60,
-                _ => throw new NotImplementedException($"{MaxGameTime}")
-            };
-
-            // Pass in initial time
-            OnTimerInit?.Invoke(TimeInt);
-            previousIntTime = TimeInt;
+            Initialize();
         }
 
         public void Update()
         {
             switch (State)
             {
-                case MiniGameState.NotStarted:
-                case MiniGameState.InCountDown:
-                case MiniGameState.TimerExpired:
-                case MiniGameState.GameOver:
+                case MiniGameManagerState.WaitingForStart:
+                case MiniGameManagerState.InCountDown:
+                case MiniGameManagerState.TimerExpired:
+                case MiniGameManagerState.GameOver:
                     break;
 
-                case MiniGameState.TimerRunning:
+                case MiniGameManagerState.TimerRunning:
                     StateRunning();
                     break;
 
@@ -77,38 +87,65 @@ namespace MiniGameCollection
             }
         }
 
-        public void Reset()
-        {
-
-        }
-
-        public void StartTimer()
+        public void StartGame()
         {
             if (IsTimerRunning)
             {
-                string msg = $"Attempt to invoke {nameof(MiniGameManager)}.{nameof(StartTimer)} when timer already running.";
+                string msg = $"Attempt to invoke {nameof(MiniGameManager)}.{nameof(StartGame)} when timer already running.";
                 Debug.LogWarning(msg);
                 return;
             }
 
             // Begin countdown
-            State = MiniGameState.InCountDown;
-            stateCoroutine = CoroutineCountDown();
-            StartCoroutine(stateCoroutine);
+            State = MiniGameManagerState.InCountDown;
+            StateCoroutine = CoroutineCountDown();
+            StartCoroutine(StateCoroutine);
         }
 
-        public void StopTimer()
+        public void StopGame()
         {
             if (!IsTimerRunning)
             {
-                string msg = $"Attempt to invoke {nameof(MiniGameManager)}.{nameof(StopTimer)} when timer not running.";
+                string msg = $"Attempt to invoke {nameof(MiniGameManager)}.{nameof(StopGame)} when timer not running.";
                 Debug.LogWarning(msg);
                 return;
             }
 
-            State = MiniGameState.TimerExpired;
-            OnGameEnd?.Invoke();
+            State = MiniGameManagerState.TimerExpired;
+            StateCoroutine = CoroutineTimerExpired();
+            StartCoroutine(StateCoroutine);
         }
+
+
+        private void Initialize()
+        {
+            if (DebugMode)
+            {
+                // Use short intevals and define game time
+                Delay1Second = new WaitForSeconds(0.25f);
+                TimeFloat = DebugGameTime;
+            }
+            else
+            {
+                // Typical delay between ticks
+                Delay1Second = new WaitForSeconds(1);
+
+                // Set time based on enum
+                TimeFloat = MaxGameTime switch
+                {
+                    MiniGameMaxTime.Seconds30 => 30f,
+                    MiniGameMaxTime.Seconds60 => 60f,
+                    _ => throw new NotImplementedException($"{MaxGameTime}")
+                };
+            }
+
+            // Pass in initial time
+            OnTimerInit?.Invoke(TimeInt);
+            PreviousIntTime = TimeInt;
+
+            State = MiniGameManagerState.WaitingForStart;
+        }
+
 
         private void StateRunning()
         {
@@ -117,17 +154,18 @@ namespace MiniGameCollection
             OnTimerUpdateFloat?.Invoke(TimeFloat);
 
             // Update whole number time if changed
-            if (TimeInt != previousIntTime)
+            if (TimeInt != PreviousIntTime)
             {
-                previousIntTime = TimeInt;
+                PreviousIntTime = TimeInt;
                 OnTimerUpdateInt?.Invoke(TimeInt);
             }
 
             // End timer running state if timer expired
             if (TimeInt == 0)
             {
-                State = MiniGameState.TimerExpired;
-                OnGameEnd?.Invoke();
+                State = MiniGameManagerState.TimerExpired;
+                StateCoroutine = CoroutineTimerExpired();
+                StartCoroutine(StateCoroutine);
             }
         }
 
@@ -138,41 +176,42 @@ namespace MiniGameCollection
             {
                 CurrentCountDownMessage = $"{i}";
                 OnCountDown?.Invoke(CurrentCountDownMessage);
-                yield return delay1Second;
+                yield return Delay1Second;
             }
 
             // Print "GO!" or otherwise defined message
             CurrentCountDownMessage = CountDownStartMessage;
             OnCountDown?.Invoke(CurrentCountDownMessage);
-            yield return delay1Second;
-            
+            yield return Delay1Second;
+
             // Clear message
             CurrentCountDownMessage = string.Empty;
+            OnCountDown?.Invoke(CurrentCountDownMessage);
 
             // Kick off timer
-            State = MiniGameState.TimerRunning;
+            State = MiniGameManagerState.TimerRunning;
             OnGameStart?.Invoke();
 
             // Clear reference to this coroutine
-            stateCoroutine = null;
+            StateCoroutine = null;
         }
 
         private IEnumerator CoroutineTimerExpired()
         {
             // Call game end
             OnGameEnd?.Invoke();
-            yield return delay1Second;
+            yield return Delay1Second;
 
             // Call game winner
             OnGameWinner?.Invoke(Winner);
-            yield return delay1Second;
+            yield return Delay1Second;
 
             // Kill state machine with terminal state
-            State = MiniGameState.GameOver;
+            State = MiniGameManagerState.GameOver;
             OnGameClose?.Invoke();
 
             // Clear reference to this coroutine
-            stateCoroutine = null;
+            StateCoroutine = null;
         }
 
     }
