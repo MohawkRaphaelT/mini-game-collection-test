@@ -1,3 +1,5 @@
-# Omit generated build folder
-[Bb]uild
-[Bb]uilds
+# Omit GitHub Actions generated folders
+/[Aa]rtifact
+/[Aa]rtifacts
+/[Bb]uild
+/[Bb]uilds
