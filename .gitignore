@@ -1,5 +1,4 @@
-# Omit GitHub Actions generated folders
-/[Aa]rtifact
-/[Aa]rtifacts
-/[Bb]uild
-/[Bb]uilds
+# Ignore temporaries from GameCI
+/[Aa]rtifacts/
+/[Bb]uild/
+/[Bb]uilds/[Cc]odeCoverage/
