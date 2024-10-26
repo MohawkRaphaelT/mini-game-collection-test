@@ -1,2 +1,3 @@
-# Omit test HDRP project
-UnityHDRP
+# Omit generated build folder
+[Bb]uild
+[Bb]uilds
