@@ -2,6 +2,7 @@
 # https://game.ci/docs/github/builder/
 # https://game.ci/docs/github/getting-started#workflow-examples
 # https://github.com/game-ci/unity-builder/issues/241
+# https://game.ci/docs/troubleshooting/common-issues/#branch-is-dirty
 
 name: Build WebGL
 
@@ -12,9 +13,11 @@ jobs:
         name: Build WebGL
         runs-on: ubuntu-latest
         steps:
-            # Checkout (without LFS)
+            # Checkout
             - name: Checkout repository
               uses: actions/checkout@v4
+              with:
+                lfs: true
 
             # Git LFS
             - name: Create LFS file list
